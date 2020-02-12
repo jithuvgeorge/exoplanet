@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: exoplanet-service
+spec:
+  selector:
+    app: exoplanet-app
+  ports:
+  - protocol: "TCP"
+    port: 6000
+    targetPort: 5000
+  type: LoadBalancer
+
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: exoplanet
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: exoplanet-app
+    spec:
+      containers:
+      - name: exoplanet-container
+        image: exoplanet:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000

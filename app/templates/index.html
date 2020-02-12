@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<head>
+    <link type="text/css" href="/static/css/bootstrap.min.css" rel="stylesheet"/>
+    <link type="text/css" href="/static/css/main.css" rel="stylesheet"/>
+</head>
+<body>
+    <div id="mainContainer" class="col-100vh container-fluid main_container">
+        <div class="row col-100vh">
+            <div class="col-xs-12 col-100vh"  id="headLine">
+                    <div class="col-50vh col-xs-12">
+                        <h1>Exoplanet data</h1>
+                    </div>
+            </div>
+            <hr style="width: 100%; color: #ddd; height: 1px; background-color:#ddd;" />
+            <div class="col-x-s12 col-100vh">
+                <div class="col-60vh col-xs-8" id="detailsDiv">
+                    <div id ="chartDiv" class="chartDiv col-xs-12">
+                    </div>
+                    <div class="col-100vh col-xs-12">
+                       <h4><em>The number of orphan planets: {{ data.orphan_count }}</em></h4>
+                    </div>
+                    <div class="col-100vh col-xs-12">
+                       <h4><em>The planet orbiting the hottest star is &ldquo;{{ data.hottest_star_planet[0]}}&rdquo; with star
+                           temperature {{ data.hottest_star_planet[1]}}K.</em></h4>
+                    </div>
+                </div>
+                <div class="col-60vh col-xs-4" id="chartTable">
+                    <table class="table table-bordered table-condensed table-hover table-responsive">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Large</th>
+                                <th>Medium</th>
+                                <th>Small</th>
+                            <tr>
+                        </thead>
+                        <tbody>
+                            {% for timeLineData in data.time_line_data %}
+                            <tr>
+                                <td>{{ timeLineData.year }}</td>
+                                <td>{{ timeLineData.Large }}</td>
+                                <td>{{ timeLineData.Medium }}</td>
+                                <td>{{ timeLineData.Small }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/libs/d3.v3.min.js"></script>
+    <script>
+        var dataset = {{ data.time_line_data | safe }};
+
+        var margin = {top: (parseInt(d3.select('#chartDiv').style('width'), 10)/8)
+                , right: (parseInt(d3.select('#chartDiv').style('width'), 10)/20)
+                , bottom: (parseInt(d3.select('#chartDiv').style('width'), 10)/5)
+                , left: (parseInt(d3.select('#chartDiv').style('width'), 10)/20)},
+            width = parseInt(d3.select('#chartDiv').style('width'), 10) - margin.left - margin.right,
+            height = parseInt(d3.select('#chartDiv').style('height'), 10) - margin.top/2 - margin.bottom/2;
+
+        var x0 = d3.scale.ordinal().rangeRoundBands([0, width], .1);
+
+        var x1 = d3.scale.ordinal();
+
+        var y = d3.scale.linear().range([height, 0]);
+
+        var colorRange = d3.scale.category20c();
+        var color = d3.scale.ordinal()
+            .range(colorRange.range());
+
+        var xAxis = d3.svg.axis()
+            .scale(x0)
+            .orient("bottom");
+
+        var yAxis = d3.svg.axis()
+            .scale(y)
+            .orient("left")
+            .tickFormat(d3.format(".2s"));
+
+        var divTooltip = d3.select("#chartDiv").append("div").attr("class", "toolTip");
+
+        var svg = d3.select("#chartDiv").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top/1.5 + ")");
+
+        var options = d3.keys(dataset[0]).filter(function(key) { return key !== "year"; });
+
+        dataset.forEach(function(d) {
+            d.valores = options.map(function(name) { return {name: name, value: +d[name]}; });
+        });
+
+        x0.domain(dataset.map(function(d) { return d.year; }));
+        x1.domain(options).rangeRoundBands([0, x0.rangeBand()]);
+        y.domain([0, d3.max(dataset, function(d) { return d3.max(d.valores, function(d) { return d.value; }); })]);
+
+        svg.append("g")
+            .attr("class", "x axis")
+            .attr("transform", "translate(0," + height + ")")
+            .call(xAxis);
+
+        svg.append("g")
+            .attr("class", "y axis")
+            .call(yAxis)
+            .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", 6)
+            .attr("dy", ".71em")
+            .style("text-anchor", "end")
+            .text("No of planets discovered");
+
+        var bar = svg.selectAll(".bar")
+            .data(dataset)
+            .enter().append("g")
+            .attr("class", "rect")
+            .attr("transform", function(d) { return "translate(" + x0(d.year) + ",0)"; });
+
+        bar.selectAll("rect")
+            .data(function(d) { return d.valores; })
+            .enter().append("rect")
+            .attr("width", x1.rangeBand())
+            .attr("x", function(d) { return x1(d.name); })
+            .attr("y", function(d) { return y(d.value); })
+            .attr("value", function(d){return d.name;})
+            .attr("height", function(d) { return height - y(d.value); })
+            .style("fill", function(d) { return color(d.name); });
+
+        bar
+            .on("mousemove", function(d){
+                divTooltip.style("left", d3.event.pageX-1+"px");
+                divTooltip.style("top", d3.event.pageY-85+"px");
+                divTooltip.style("display", "inline-block");
+                var x = d3.event.pageX, y = d3.event.pageY;
+                var elements = document.querySelectorAll(':hover');
+                var l = elements.length;
+                l = l-1;
+                var elementData = elements[l].__data__;
+                divTooltip.html((d.year)+"<br>"+elementData.name+"<br>"+elementData.value);
+            });
+        bar
+            .on("mouseout", function(d){
+                divTooltip.style("display", "none");
+            });
+
+        var legend = svg.selectAll(".legend")
+            .data(options.slice())
+            .enter().append("g")
+            .attr("class", "legend")
+            .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+        legend.append("rect")
+            .attr("x", 50)
+            .attr("y", -60)
+            .attr("width", 18)
+            .attr("height", 18)
+            .style("fill", color);
+
+        legend.append("text")
+            .attr("x", 75)
+            .attr("y", -49)
+            .attr("dy", ".35em")
+            .style("text-anchor", "start")
+            .text(function(d) { return d; });
+
+    </script>
+</body>
+</html>
